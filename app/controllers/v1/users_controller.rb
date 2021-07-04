@@ -2,7 +2,7 @@
 
 module V1
   class UsersController < ApiController
-    USER_AUTH = { only: %i[index current show update] }.freeze
+    USER_AUTH = { only: %i[index current show update auth_on_behalf] }.freeze
     include UserAuth
 
     def index
@@ -56,6 +56,18 @@ module V1
       found_code.used_at = Time.current
 
       found_code.save! && user.save!
+
+      render_success(auth_token: user.auth_token)
+    end
+
+    # Allows admins to create users and authenticate on their behalf.
+    # Used by Hack Club Bank for pre-created organization users
+    def auth_on_behalf
+      return render_access_denied unless current_user.admin?
+
+      user = User.find_or_initialize_by(email: params[:email].downcase)
+      user.generate_auth_token!
+      user.save!
 
       render_success(auth_token: user.auth_token)
     end
